@@ -6932,6 +6932,9 @@ dc.boxPlot = function (parent, chartGroup) {
                 _chart.filter(d.key);
                 _chart.redrawGroup();
             });
+        boxesGEnter.append("title").text(function (d) {
+                return d.key;
+            });
     }
 
     function updateBoxes(boxesG) {
