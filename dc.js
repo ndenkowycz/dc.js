@@ -3540,12 +3540,22 @@ dc.barChart = function (parent, chartGroup) {
 
     var _gap = DEFAULT_GAP_BETWEEN_BARS;
     var _centerBar = false;
+    var _alwaysUseRounding = false;
 
     var _barWidth;
 
     dc.override(_chart, 'rescale', function () {
         _chart._rescale();
         _barWidth = undefined;
+    });
+
+    dc.override(_chart, 'render', function () {
+        if (_chart.round() && _centerBar && !_alwaysUseRounding) {
+            console.warn("By default, brush rounding is disabled if bars are centered. " +
+                         "See dc.js bar chart API documentation for details.");
+        }
+
+        _chart._render();
     });
 
     _chart.plotData = function () {
@@ -3712,14 +3722,33 @@ dc.barChart = function (parent, chartGroup) {
 
     _chart.extendBrush = function () {
         var extent = _chart.brush().extent();
-        if (_chart.round() && !_centerBar) {
+        if (_chart.round() && (!_centerBar || _alwaysUseRounding)) {
             extent[0] = extent.map(_chart.round())[0];
             extent[1] = extent.map(_chart.round())[1];
 
             _chart.chartBodyG().select(".brush")
                 .call(_chart.brush().extent(extent));
         }
+
         return extent;
+    };
+
+    /**
+    #### .alwaysUseRounding([boolean])
+    Set or get the flag which determines whether rounding is enabled when bars are centered (default: false).
+    If false, using rounding with centered bars will result in a warning and rounding will be ignored.
+    This flag has no effect if bars are not centered.
+
+    When using standard d3.js rounding methods, the brush often doesn't align correctly with centered bars since the bars are offset.
+    The rounding function must add an offset to compensate, such as in the following example.
+    ```js
+    chart.round(function(n) {return Math.floor(n)+0.5});
+    ```
+    **/
+    _chart.alwaysUseRounding = function (_) {
+        if (!arguments.length) return _alwaysUseRounding;
+        _alwaysUseRounding = _;
+        return _chart;
     };
 
     function colorFilter(color,inv) {
@@ -5530,10 +5559,13 @@ dc.rowChart = function (parent, chartGroup) {
 
     var _labelOffsetX = 10;
     var _labelOffsetY = 15;
+    var _titleLabelOffsetX = 2;
 
     var _gap = 5;
 
     var _rowCssClass = "row";
+    var _titleRowCssClass = "titlerow";
+    var _renderTitleLabel = false;
 
     var _chart = dc.capMixin(dc.marginMixin(dc.colorMixin(dc.baseMixin({}))));
 
@@ -5682,6 +5714,11 @@ dc.rowChart = function (parent, chartGroup) {
             rowEnter.append("text")
                 .on("click", onClick);
         }
+        if (_chart.renderTitleLabel()) {
+            rowEnter.append("text")
+                .attr("class", _titleRowCssClass)
+                .on("click", onClick);
+        }
     }
 
     function updateLabels(rows) {
@@ -5699,6 +5736,32 @@ dc.rowChart = function (parent, chartGroup) {
             dc.transition(lab, _chart.transitionDuration())
                 .attr("transform", translateX);
         }
+        if (_chart.renderTitleLabel()) {
+            var titlelab = rows.select("." + _titleRowCssClass)
+                    .attr("x", _chart.effectiveWidth() - _titleLabelOffsetX)
+                    .attr("y", _labelOffsetY)
+                    .attr("text-anchor", "end")
+                    .on("click", onClick)
+                    .attr("class", function (d, i) {
+                        return _titleRowCssClass + " _" + i ;
+                    })
+                    .text(function (d) {
+                        return _chart.title()(d);
+                    });
+            dc.transition(titlelab, _chart.transitionDuration())
+                .attr("transform", translateX);
+            }
+    }
+
+    /**
+    #### .renderTitleLabel(boolean)
+    Turn on/off Title label rendering (values) using SVG style of text-anchor 'end'
+
+    **/
+    _chart.renderTitleLabel = function (_) {
+        if (!arguments.length) return _renderTitleLabel;
+        _renderTitleLabel = _;
+        return _chart;
     }
 
     function onClick(d) {
@@ -5757,12 +5820,23 @@ dc.rowChart = function (parent, chartGroup) {
 
     /**
     #### .labelOffsetY([y])
-    Get of set the y offset (vertical space to the top left corner of a row) for labels on a particular row chart. Default y offset is 15px;
+    Get or set the y offset (vertical space to the top left corner of a row) for labels on a particular row chart. Default y offset is 15px;
 
     **/
     _chart.labelOffsetY = function (o) {
         if (!arguments.length) return _labelOffsetY;
         _labelOffsetY = o;
+        return _chart;
+    };
+
+    /**
+    #### .titleLabelOffsetx([x])
+    Get of set the x offset (horizontal space between right edge of row and right edge or text.   Default x offset is 2px;
+
+    **/
+    _chart.titleLabelOffsetX = function (o) {
+        if (!arguments.length) return _titleLabelOffsetX;
+        _titleLabelOffsetX = o;
         return _chart;
     };
 
