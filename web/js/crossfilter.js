@@ -1,5 +1,5 @@
 (function(exports){
-crossfilter.version = "1.3.7";
+crossfilter.version = "1.3.6";
 function crossfilter_identity(d) {
   return d;
 }
@@ -1393,4 +1393,4 @@ function crossfilter_capacity(w) {
       ? 0x10000
       : 0x100000000;
 }
-})(typeof exports !== 'undefined' && exports || this);
+})(this);
