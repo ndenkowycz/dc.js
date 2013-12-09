@@ -1,22 +1,20 @@
 describe('dc.lineChart', function() {
     var id, chart, data;
-    var dateDimension, dateValueSumGroup, dateIdSumGroup, dateGroup;
+    var dimension, group;
 
     beforeEach(function () {
         data = crossfilter(loadDateFixture());
-        dateDimension = data.dimension(function(d) { return d3.time.day(d.dd); });
-        dateValueSumGroup = dateDimension.group().reduceSum(function(d) { return d.value; });
-        dateIdSumGroup = dateDimension.group().reduceSum(function(d) { return d.id; });
-        dateGroup = dateDimension.group();
+        dimension = data.dimension(function(d) { return d3.time.day(d.dd); });
+        group = dimension.group();
 
         id = 'line-chart';
         appendChartID(id);
 
         chart = dc.lineChart('#' + id);
-        chart.dimension(dateDimension).group(dateGroup)
+        chart.dimension(dimension).group(group)
             .width(1100).height(200)
             .x(d3.time.scale().domain([new Date("2012/01/01"), new Date("2012/12/31")]))
-            .transitionDuration(0)
+            .transitionDuration(0);
     });
 
     describe('rendering', function () {
@@ -263,21 +261,24 @@ describe('dc.lineChart', function() {
             });
 
             it('should generate an ordinal path', function () {
-                expect(chart.select("path.line").attr("d")).toMatch(/M72.\d+,0L218.\d+,107L364.\d+,107L510(\.\d+)?,53L655.\d+,107L801.\d+,53/);
+                expect(chart.select("path.line").attr("d")).toMatch(/M85,0L255,107L425,107L595,53L765,107L935,53/);
             });
         });
 
         describe('with stacked data', function () {
             describe('with positive data', function () {
                 beforeEach(function () {
-                    chart.dimension(dateDimension)
+                    var idGroup = dimension.group().reduceSum(function(d) { return d.id; });
+                    var valueGroup = dimension.group().reduceSum(function(d) { return d.value; });
+
+                    chart.dimension(dimension)
                         .brushOn(false)
                         .x(d3.time.scale().domain([new Date("2012/5/20"), new Date("2012/8/15")]))
-                        .group(dateIdSumGroup, "stack 0")
+                        .group(idGroup, "stack 0")
                         .title("stack 0", function (d) { return "stack 0: " + d.value; })
-                        .stack(dateValueSumGroup, "stack 1")
+                        .stack(valueGroup, "stack 1")
                         .title("stack 1", function (d) { return "stack 1: " + d.value; })
-                        .stack(dateValueSumGroup, "stack 2")
+                        .stack(valueGroup, "stack 2")
                         .elasticY(true)
                         .render();
                 });
@@ -369,8 +370,7 @@ describe('dc.lineChart', function() {
                 describe('stack hiding', function () {
                     describe('first stack', function () {
                         beforeEach(function () {
-                            chart.hideStack("stack 0");
-                            chart.render();
+                            chart.hideStack("stack 0").render();
                         });
 
                         it('should hide the stack', function () {
@@ -378,8 +378,7 @@ describe('dc.lineChart', function() {
                         });
 
                         it('should show the stack', function () {
-                            chart.showStack("stack 0");
-                            chart.render();
+                            chart.showStack("stack 0").render();
                             expect(chart.select('g._0 path.line').attr("d")).toMatch(/M58\.\d+,159L222\.\d+,157L246\.\d+,150L492\.\d+,158L597\.\d+,151L961\.\d+,153/);
                         });
                     });
@@ -387,8 +386,7 @@ describe('dc.lineChart', function() {
                     describe('any other stack', function () {
                         beforeEach(function () {
                             chart.title("stack 2", function (d) { return "stack 2: " + d.value; });
-                            chart.hideStack("stack 1");
-                            chart.render();
+                            chart.hideStack("stack 1").render();
                         });
 
                         it('should hide the stack', function () {
@@ -396,8 +394,7 @@ describe('dc.lineChart', function() {
                         });
 
                         it('should show the stack', function () {
-                            chart.showStack("stack 1");
-                            chart.render();
+                            chart.showStack("stack 1").render();
                             expect(chart.select('g._1 path.line').attr("d")).toMatch(/M58\.\d+,134L222\.\d+,119L246\.\d+,75L492\.\d+,133L597\.\d+,120L961\.\d+,109/);
                         });
 
@@ -416,10 +413,10 @@ describe('dc.lineChart', function() {
 
                     describe('hiding all the stacks', function () {
                         beforeEach(function () {
-                            chart.hideStack("stack 0");
-                            chart.hideStack("stack 1");
-                            chart.hideStack("stack 2");
-                            chart.render();
+                            chart.hideStack("stack 0")
+                                .hideStack("stack 1")
+                                .hideStack("stack 2")
+                                .render();
                         });
 
                         it('should show a blank graph', function () {
@@ -431,7 +428,7 @@ describe('dc.lineChart', function() {
 
             describe('with negative data', function () {
                 beforeEach(function () {
-                    var negativeGroup = dateDimension.group().reduceSum(function(d){ return d.nvalue; });
+                    var negativeGroup = dimension.group().reduceSum(function(d){ return d.nvalue; });
 
                     chart.group(negativeGroup).stack(negativeGroup).stack(negativeGroup);
                     chart.x(d3.time.scale().domain([new Date("2012/5/20"), new Date("2012/8/15")]));
@@ -474,7 +471,7 @@ describe('dc.lineChart', function() {
             var firstItem;
 
             beforeEach(function () {
-                chart.stack(dateGroup)
+                chart.stack(group)
                     .legend(dc.legend().x(400).y(10).itemHeight(13).gap(5))
                     .renderArea(true)
                     .render();
@@ -537,7 +534,7 @@ describe('dc.lineChart', function() {
 
             describe('when a brush is defined', function () {
                 it('should position the brush with an offset', function () {
-                    expect(chart.select("g.brush").attr("transform")).toBe(chart.select("g.brush").attr("transform"));
+                    expect(chart.select("g.brush").attr("transform")).toBe("translate(" + chart.margins().left + ",10)");
                 });
 
                 it('should create a fancy brush resize handle', function () {

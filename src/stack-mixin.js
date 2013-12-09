@@ -108,6 +108,7 @@ dc.stackMixin = function (_chart) {
     _chart.hideStack = function (stackName) {
         var layer = findLayerByName(stackName);
         if (layer) layer.hidden = true;
+        return _chart;
     };
 
     /**
@@ -119,16 +120,7 @@ dc.stackMixin = function (_chart) {
     _chart.showStack = function (stackName) {
         var layer = findLayerByName(stackName);
         if (layer) layer.hidden = false;
-    };
-
-    _chart.allGroups = function () {
-        return _stack.map(dc.pluck('group'));
-    };
-
-    _chart.allValueAccessors = function () {
-        return _stack.map(function(layer) {
-            return layer.accessor || _chart.valueAccessor();
-        });
+        return _chart;
     };
 
     _chart.getValueAccessorByIndex = function (index) {

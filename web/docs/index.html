@@ -375,6 +375,10 @@ and names associated with each group.</p>
 <pre><code class="lang-js">chart<span class="variable">.legend</span>(dc<span class="variable">.legend</span>()<span class="variable">.x</span>(<span class="number">400</span>)<span class="variable">.y</span>(<span class="number">10</span>)<span class="variable">.itemHeight</span>(<span class="number">13</span>)<span class="variable">.gap</span>(<span class="number">5</span>))</code></pre>
 <h4 id="-chartid-">.chartID()</h4>
 <p>Return the internal numeric ID of the chart.</p>
+<h4 id="-options-optionsobject-">.options(optionsObject)</h4>
+<p>Set chart options using a configuration object. Each object key will be call the fluent method of the same name to set that attribute for the chart.</p>
+<p>Example:</p>
+<pre><code><span class="tag">chart</span><span class="class">.options</span>(<span class="rules">{<span class="rule"><span class="attribute">dimension</span>:<span class="value"> myDimension, group: myGroup}</span></span></span>);</code></pre>
 <h2 id="listeners">Listeners</h2>
 <p>All dc chart instance supports the following listeners.</p>
 <h4 id="-on-prerender-function-chart-">.on(“preRender”, function(chart){…})</h4>
@@ -782,7 +786,7 @@ becomes an area chart.</p>
 <p>If <code>options</code> is falsy, it disables data point rendering.</p>
 <p>If no <code>options</code> are provided, the current <code>options</code> values are instead returned.</p>
 <p>Example:</p>
-<pre><code>chart.renderDataPoints([{<span class="method">radius:</span> <span class="number">2</span>, <span class="method">fillOpacity:</span> <span class="number">0.8</span>, <span class="method">strokeOpacity:</span> <span class="number">0.8</span>}])</code></pre>
+<pre><code><span class="tag">chart</span><span class="class">.renderDataPoints</span>(<span class="rules">{<span class="rule"><span class="attribute">radius</span>:<span class="value"> <span class="number">2</span>, fillOpacity: <span class="number">0.8</span>, strokeOpacity: <span class="number">0.8</span>}</span></span></span>)</code></pre>
 <h2 id="data-count-widget">Data Count Widget</h2>
 <p>Includes: <a href="#base-mixin">Base Mixin</a></p>
 <p>Data count is a simple widget designed to display total number records in the data set vs. the number records selected
@@ -921,6 +925,12 @@ A newly created composite chart instance</p>
 var compositeChart1 = dc.compositeChart(<span class="string">"#chart-container1"</span>);</span>
 // <span class="operator"><span class="keyword">create</span> a composite chart under #chart-container2 element <span class="keyword">using</span> chart <span class="keyword">group</span> A
 var compositeChart2 = dc.compositeChart(<span class="string">"#chart-container2"</span>, <span class="string">"chartGroupA"</span>);</span></code></pre>
+<h4 id="-userightaxisgridlines-bool-">.useRightAxisGridLines(bool)</h4>
+<p>Get or set whether to draw gridlines from the right y axis.
+Drawing from the left y axis is the default behavior. This option is only respected when
+subcharts with both left and right y-axes are present.</p>
+<h4 id="-childoptions-object-">.childOptions({object})</h4>
+<p>Get or set chart-specific options for all child charts. This is equivalent to calling <code>.options</code> on each child chart.</p>
 <h4 id="-rightyaxislabel-labeltext-">.rightYAxisLabel([labelText])</h4>
 <p>Set or get the right y axis label.</p>
 <h4 id="-compose-subchartarray-">.compose(subChartArray)</h4>

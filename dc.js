@@ -395,6 +395,34 @@ dc.utils.appendOrSelect = function (parent, name) {
 
 dc.utils.safeNumber = function(n){return dc.utils.isNumber(+n)?+n:0;};
 
+dc.logger = {};
+
+dc.logger.enableDebugLog = false;
+
+dc.logger.warn = function (msg) {
+    if (console) {
+        if (console.warn) {
+            console.warn(msg);
+        } else if (console.log) {
+            console.log(msg);
+        }
+    }
+
+    return dc.logger;
+};
+
+dc.logger.debug = function (msg) {
+    if (dc.logger.enableDebugLog && console) {
+        if (console.debug) {
+            console.debug(msg);
+        } else if (console.log) {
+            console.log(msg);
+        }
+    }
+
+    return dc.logger;
+};
+
 dc.events = {
     current: null
 };
@@ -1317,6 +1345,26 @@ dc.baseMixin = function (_chart) {
     };
 
     /**
+    #### .options(optionsObject)
+    Set chart options using a configuration object. Each object key will be call the fluent method of the same name to set that attribute for the chart.
+
+    Example:
+    ```
+    chart.options({dimension: myDimension, group: myGroup});
+    ```
+    **/
+    _chart.options = function(opts) {
+        for (var o in opts) {
+            if (typeof(_chart[o]) === 'function') {
+                _chart[o].call(_chart,opts[o]);
+            } else {
+                dc.logger.debug("Not a valid option setter name: " + o);
+            }
+        }
+        return _chart;
+    };
+
+    /**
     ## Listeners
     All dc chart instance supports the following listeners.
 
@@ -1926,7 +1974,7 @@ dc.coordinateGridMixin = function (_chart) {
         return _chart;
     };
 
-    _chart.prepareYAxis = function(g) {
+    _chart._prepareYAxis = function(g) {
         if (_y === undefined || _chart.elasticY()) {
             _y = d3.scale.linear();
             _y.domain([_chart.yAxisMin(), _chart.yAxisMax()]).rangeRound([_chart.yAxisHeight(), 0]);
@@ -1938,7 +1986,7 @@ dc.coordinateGridMixin = function (_chart) {
         if (_useRightYAxis)
             _yAxis.orient("right");
 
-        renderHorizontalGridLines(g);
+        _chart._renderHorizontalGridLinesForAxis(g, _y, _yAxis);
     };
 
     _chart.renderYAxisLabel = function(axisClass, text, rotation, labelXPosition) {
@@ -1978,11 +2026,11 @@ dc.coordinateGridMixin = function (_chart) {
         _chart.renderYAxisLabel("y", _chart.yAxisLabel(), rotation, labelPosition);
     };
 
-    function renderHorizontalGridLines(g) {
+    _chart._renderHorizontalGridLinesForAxis = function (g, scale, axis) {
         var gridLineG = g.selectAll("g." + HORIZONTAL_CLASS);
 
         if (_renderHorizontalGridLine) {
-            var ticks = _yAxis.tickValues() ? _yAxis.tickValues() : _y.ticks(_yAxis.ticks()[0]);
+            var ticks = axis.tickValues() ? axis.tickValues() : scale.ticks(axis.ticks()[0]);
 
             if (gridLineG.empty()) {
                 gridLineG = g.insert("g", ":first-child")
@@ -1998,11 +2046,11 @@ dc.coordinateGridMixin = function (_chart) {
                 .append("line")
                 .attr("x1", 1)
                 .attr("y1", function (d) {
-                    return _y(d);
+                    return scale(d);
                 })
                 .attr("x2", _chart.xAxisLength())
                 .attr("y2", function (d) {
-                    return _y(d);
+                    return scale(d);
                 })
                 .attr("opacity", 0);
             dc.transition(linesGEnter, _chart.transitionDuration())
@@ -2012,11 +2060,11 @@ dc.coordinateGridMixin = function (_chart) {
             dc.transition(lines, _chart.transitionDuration())
                 .attr("x1", 1)
                 .attr("y1", function (d) {
-                    return _y(d);
+                    return scale(d);
                 })
                 .attr("x2", _chart.xAxisLength())
                 .attr("y2", function (d) {
-                    return _y(d);
+                    return scale(d);
                 });
 
             // exit
@@ -2025,7 +2073,7 @@ dc.coordinateGridMixin = function (_chart) {
         else {
             gridLineG.selectAll("line").remove();
         }
-    }
+    };
 
     _chart._yAxisX = function () {
         return _chart.useRightYAxis() ? _chart.width() - _chart.margins().right : _chart.margins().left;
@@ -2230,9 +2278,6 @@ dc.coordinateGridMixin = function (_chart) {
     }
 
     _chart.renderBrush = function (g) {
-        if (_chart.isOrdinal())
-            _brushOn = false;
-
         if (_brushOn) {
             _brush.on("brush", _chart._brushing);
             _brush.on("brushstart", _chart._disableMouseZoom);
@@ -2383,8 +2428,11 @@ dc.coordinateGridMixin = function (_chart) {
     };
 
     function drawChart (render) {
+        if (_chart.isOrdinal())
+            _brushOn = false;
+
         prepareXAxis(_chart.g());
-        _chart.prepareYAxis(_chart.g());
+        _chart._prepareYAxis(_chart.g());
 
         _chart.plotData();
 
@@ -2650,6 +2698,7 @@ dc.stackMixin = function (_chart) {
     _chart.hideStack = function (stackName) {
         var layer = findLayerByName(stackName);
         if (layer) layer.hidden = true;
+        return _chart;
     };
 
     /**
@@ -2661,16 +2710,7 @@ dc.stackMixin = function (_chart) {
     _chart.showStack = function (stackName) {
         var layer = findLayerByName(stackName);
         if (layer) layer.hidden = false;
-    };
-
-    _chart.allGroups = function () {
-        return _stack.map(dc.pluck('group'));
-    };
-
-    _chart.allValueAccessors = function () {
-        return _stack.map(function(layer) {
-            return layer.accessor || _chart.valueAccessor();
-        });
+        return _chart;
     };
 
     _chart.getValueAccessorByIndex = function (index) {
@@ -3551,7 +3591,7 @@ dc.barChart = function (parent, chartGroup) {
 
     dc.override(_chart, 'render', function () {
         if (_chart.round() && _centerBar && !_alwaysUseRounding) {
-            console.warn("By default, brush rounding is disabled if bars are centered. " +
+            dc.logger.warn("By default, brush rounding is disabled if bars are centered. " +
                          "See dc.js bar chart API documentation for details.");
         }
 
@@ -3840,6 +3880,7 @@ dc.lineChart = function (parent, chartGroup) {
     var _dashStyle;
 
     _chart.transitionDuration(500);
+    _chart._rangeBandPadding(1);
 
     _chart.plotData = function () {
         var chartBody = _chart.chartBodyG();
@@ -3976,7 +4017,6 @@ dc.lineChart = function (parent, chartGroup) {
 
     function drawDots(chartBody, layers) {
         if (!_chart.brushOn()) {
-
             var tooltipListClass = TOOLTIP_G_CLASS + "-list";
             var tooltips = chartBody.select("g." + tooltipListClass);
 
@@ -4092,7 +4132,7 @@ dc.lineChart = function (parent, chartGroup) {
 
     Example:
     ```
-    chart.renderDataPoints([{radius: 2, fillOpacity: 0.8, strokeOpacity: 0.8}])
+    chart.renderDataPoints({radius: 2, fillOpacity: 0.8, strokeOpacity: 0.8})
     ```
     **/
     _chart.renderDataPoints = function (options) {
@@ -4580,11 +4620,14 @@ var compositeChart2 = dc.compositeChart("#chart-container2", "chartGroupA");
 
 **/
 dc.compositeChart = function (parent, chartGroup) {
+
     var SUB_CHART_CLASS = "sub";
     var DEFAULT_RIGHT_Y_AXIS_LABEL_PADDING = 12;
 
     var _chart = dc.coordinateGridMixin({});
     var _children = [];
+
+    var _childOptions = {};
 
     var _shareColors = false,
         _shareTitle = true;
@@ -4592,7 +4635,8 @@ dc.compositeChart = function (parent, chartGroup) {
     var _rightYAxis = d3.svg.axis(),
         _rightYAxisLabel = 0,
         _rightYAxisLabelPadding = DEFAULT_RIGHT_Y_AXIS_LABEL_PADDING,
-        _rightY;
+        _rightY,
+        _rightAxisGridLines = false;
 
     _chart._mandatoryAttributes([]);
     _chart.transitionDuration(500);
@@ -4628,9 +4672,16 @@ dc.compositeChart = function (parent, chartGroup) {
         }
     };
 
-    _chart.prepareYAxis = function () {
+    _chart._prepareYAxis = function () {
         if (leftYAxisChildren().length !== 0) { prepareLeftYAxis(); }
         if (rightYAxisChildren().length !== 0) { prepareRightYAxis(); }
+
+        if (leftYAxisChildren().length > 0 && !_rightAxisGridLines) {
+            _chart._renderHorizontalGridLinesForAxis(_chart.g(), _chart.y(), _chart.yAxis());
+        }
+        else if (rightYAxisChildren().length > 0) {
+            _chart._renderHorizontalGridLinesForAxis(_chart.g(), _rightY, _rightYAxis);
+        }
     };
 
     _chart.renderYAxis = function () {
@@ -4705,6 +4756,32 @@ dc.compositeChart = function (parent, chartGroup) {
         }
     };
 
+    /**
+    #### .useRightAxisGridLines(bool)
+    Get or set whether to draw gridlines from the right y axis.
+    Drawing from the left y axis is the default behavior. This option is only respected when
+    subcharts with both left and right y-axes are present.
+    **/
+    _chart.useRightAxisGridLines = function(_) {
+        if (!arguments) return _rightAxisGridLines;
+
+        _rightAxisGridLines = _;
+        return _chart;
+    };
+
+    /**
+    #### .childOptions({object})
+    Get or set chart-specific options for all child charts. This is equivalent to calling `.options` on each child chart.
+    **/
+    _chart.childOptions = function (_) {
+        if(!arguments.length) return _childOptions;
+        _childOptions = _;
+        _children.forEach(function(child){
+            child.options(_childOptions);
+        });
+        return _chart;
+    };
+
     _chart.fadeDeselectedArea = function () {
         for (var i = 0; i < _children.length; ++i) {
             var child = _children[i];
@@ -4714,9 +4791,9 @@ dc.compositeChart = function (parent, chartGroup) {
     };
 
     /**
-     #### .rightYAxisLabel([labelText])
-     Set or get the right y axis label.
-     **/
+    #### .rightYAxisLabel([labelText])
+    Set or get the right y axis label.
+    **/
     _chart.rightYAxisLabel = function (_, padding) {
         if (!arguments.length) return _rightYAxisLabel;
         _rightYAxisLabel = _;
@@ -4760,6 +4837,8 @@ dc.compositeChart = function (parent, chartGroup) {
             child.margins(_chart.margins());
 
             if (_shareTitle) child.title(_chart.title());
+
+            child.options(_childOptions);
         });
         return _chart;
     };
@@ -4782,10 +4861,10 @@ dc.compositeChart = function (parent, chartGroup) {
     };
 
     /**
-     #### .shareTitle([[boolean])
-     Get or set title sharing for the chart. If set, the `.title()` value from this chart
-     will be shared with composed children. Default value is true.
-     **/
+    #### .shareTitle([[boolean])
+    Get or set title sharing for the chart. If set, the `.title()` value from this chart
+    will be shared with composed children. Default value is true.
+    **/
     _chart.shareTitle = function (_) {
         if (!arguments.length) return _shareTitle;
         _shareTitle = _;
@@ -4793,10 +4872,10 @@ dc.compositeChart = function (parent, chartGroup) {
     };
 
     /**
-     #### .rightY([yScale])
-     Get or set the y scale for the right axis. Right y scale is typically automatically generated by the chart implementation.
+    #### .rightY([yScale])
+    Get or set the y scale for the right axis. Right y scale is typically automatically generated by the chart implementation.
 
-     **/
+    **/
     _chart.rightY = function (_) {
         if (!arguments.length) return _rightY;
         _rightY = _;
@@ -4895,20 +4974,20 @@ dc.compositeChart = function (parent, chartGroup) {
     };
 
     /**
-     #### .rightYAxis([yAxis])
-     Set or get the right y axis used by the composite chart. This function is most useful when certain y
-     axis customization is required. y axis in dc.js is simply an instance
-     of [d3 axis object](https://github.com/mbostock/d3/wiki/SVG-Axes#wiki-_axis) therefore it supports any valid d3 axis
-     manipulation. **Caution**: The y axis is typically generated by dc chart internal, resetting it might cause unexpected
-     outcome.
-     ```js
-     // customize y axis tick format
-     chart.rightYAxis().tickFormat(function(v) {return v + "%";});
-     // customize y axis tick values
-     chart.rightYAxis().tickValues([0, 100, 200, 300]);
-     ```
+    #### .rightYAxis([yAxis])
+    Set or get the right y axis used by the composite chart. This function is most useful when certain y
+    axis customization is required. y axis in dc.js is simply an instance
+    of [d3 axis object](https://github.com/mbostock/d3/wiki/SVG-Axes#wiki-_axis) therefore it supports any valid d3 axis
+    manipulation. **Caution**: The y axis is typically generated by dc chart internal, resetting it might cause unexpected
+    outcome.
+    ```js
+    // customize y axis tick format
+    chart.rightYAxis().tickFormat(function(v) {return v + "%";});
+    // customize y axis tick values
+    chart.rightYAxis().tickValues([0, 100, 200, 300]);
+    ```
 
-     **/
+    **/
     _chart.rightYAxis = function (rightYAxis) {
         if (!arguments.length) return _rightYAxis;
         _rightYAxis = rightYAxis;
@@ -5750,7 +5829,7 @@ dc.rowChart = function (parent, chartGroup) {
                     });
             dc.transition(titlelab, _chart.transitionDuration())
                 .attr("transform", translateX);
-            }
+        }
     }
 
     /**
@@ -5762,7 +5841,7 @@ dc.rowChart = function (parent, chartGroup) {
         if (!arguments.length) return _renderTitleLabel;
         _renderTitleLabel = _;
         return _chart;
-    }
+    };
 
     function onClick(d) {
         _chart.onClick(d);
